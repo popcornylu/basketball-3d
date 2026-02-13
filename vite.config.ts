@@ -10,6 +10,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  base: '/basketball-3d/',
   build: {
     target: 'esnext',
   },
