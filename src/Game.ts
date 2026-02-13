@@ -1,4 +1,4 @@
-import type RAPIER_TYPE from '@dimforge/rapier3d';
+import type RAPIER_TYPE from '@dimforge/rapier3d-compat';
 import * as THREE from 'three';
 
 import { EventBus } from './core/EventBus';

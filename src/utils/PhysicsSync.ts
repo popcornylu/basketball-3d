@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type RAPIER from '@dimforge/rapier3d';
+import type RAPIER from '@dimforge/rapier3d-compat';
 
 /**
  * Sync a Three.js Object3D with a Rapier rigid body position and rotation.

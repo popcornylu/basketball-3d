@@ -1,4 +1,4 @@
-import type RAPIER from '@dimforge/rapier3d';
+import type RAPIER from '@dimforge/rapier3d-compat';
 import { GRAVITY, PHYSICS_TIMESTEP } from '../core/Constants';
 
 export class PhysicsWorld {

@@ -1,7 +1,7 @@
-import RAPIER from '@dimforge/rapier3d';
+import RAPIER from '@dimforge/rapier3d-compat';
 
 async function main() {
-  // Rapier 0.14 auto-initializes WASM via ESM import
+  await RAPIER.init();
   console.log('Rapier version:', RAPIER.version());
 
   // Import Game

@@ -1,4 +1,4 @@
-import type RAPIER from '@dimforge/rapier3d';
+import type RAPIER from '@dimforge/rapier3d-compat';
 import { COURT_LENGTH, COURT_WIDTH, COURT_Y } from '../core/Constants';
 import { PhysicsWorld } from './PhysicsWorld';
 

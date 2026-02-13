@@ -1,4 +1,4 @@
-import type RAPIER from '@dimforge/rapier3d';
+import type RAPIER from '@dimforge/rapier3d-compat';
 import * as THREE from 'three';
 import {
   HOOP_HEIGHT,
