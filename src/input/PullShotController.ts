@@ -107,7 +107,7 @@ export class PullShotController implements InputController {
     const charge = dy > 0 ? clamp(dy, 0, 1) : 0;
 
     this.state.chargeLevel = charge;
-    this.state.aimDirection.x = dx;
+    this.state.aimDirection.x = -dx;
     this.state.aimDirection.y = 0;
 
     this.emitPullUpdate();
