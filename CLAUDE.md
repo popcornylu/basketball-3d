@@ -111,3 +111,48 @@ Systems communicate via `EventBus` with typed events:
 - Rapier is loaded async in `main.ts` and passed as constructor arg to `Game`
 - `dispose()` pattern used for cleanup across all systems
 - Avoid adding comments/docstrings to unchanged code
+
+## Agent Teams for Complex Tasks
+
+For complex features — especially those requiring design, architectural decisions, or multi-file changes — use **agent teams** instead of implementing everything in a single session.
+
+### When to Use Agent Teams
+
+- Features that touch 3+ files across different subsystems (physics, rendering, input, shooting)
+- Tasks requiring a design/plan phase before implementation
+- Work that can be parallelized across independent modules
+- Debugging with multiple competing hypotheses
+
+For sequential tasks, same-file edits, or simple changes, a single session or subagents are more effective.
+
+### Recommended Workflow
+
+1. **Plan first**: Enter plan mode to design the feature. Identify file boundaries and parallelizable work.
+2. **Create the team**: Describe the task and team structure. Assign each teammate a distinct set of files to avoid conflicts.
+3. **Require plan approval** for risky or architectural changes — teammates plan in read-only mode until the lead approves.
+4. **Use delegate mode** (Shift+Tab) to keep the lead focused on coordination, not implementation.
+5. **Lead integrates last**: After teammates finish parallel work, the lead handles integration (e.g., wiring everything together in `Game.ts`).
+
+### Team Patterns for This Project
+
+**New game system** (e.g., multi-ball, net physics):
+- Agent 1: Foundation — constants, type changes, shared resource refactoring
+- Agent 2: Core module — the new system (e.g., `BallManager.ts`)
+- Lead: Integration into `Game.ts` after both complete
+
+**Cross-layer feature** (e.g., new input method + visuals + physics):
+- Agent 1: Physics layer changes
+- Agent 2: Rendering layer changes
+- Agent 3: Input layer changes
+- Lead: Wiring in `Game.ts` + testing
+
+**Investigation / debugging**:
+- Spawn 2-3 agents with different hypotheses, have them challenge each other's findings
+
+### Key Rules
+
+- **Avoid file conflicts**: Never assign two teammates to edit the same file. Break work by file ownership.
+- **Size tasks right**: 5-6 tasks per teammate. Too small = coordination overhead; too large = wasted effort if off track.
+- **Give context in spawn prompts**: Teammates don't inherit conversation history. Include relevant file paths, architecture details, and acceptance criteria.
+- **Wait for teammates**: Tell the lead to wait for teammates before proceeding if it starts implementing on its own.
+- **Clean up**: Always shut down teammates before cleaning up the team. Only the lead should run cleanup.
