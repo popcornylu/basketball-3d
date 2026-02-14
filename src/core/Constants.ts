@@ -57,3 +57,16 @@ export const BALL_RESET_DELAY = 1500; // ms after result
 export const MAX_FLYING_BALLS = 10;
 export const BALL_CLEANUP_DELAY = 3000; // ms - remove settled balls after 3s
 export const BALL_SPAWN_DELAY = 500; // ms - delay before next ball appears after shooting
+
+// Net animation
+export const NET_HEIGHT = 0.45;
+export const NET_SEGMENTS = 12;
+export const NET_RINGS = 5;
+export const NET_TAPER = 0.3;
+export const NET_WAVE_SPEED = 8.0;
+export const NET_WAVE_AMPLITUDE = 0.12;
+export const NET_RADIAL_AMPLITUDE = 0.04;
+export const NET_TWIST_AMPLITUDE = 0.15;
+export const NET_SPRING_DAMPING = 4.0;
+export const NET_SPRING_FREQUENCY = 10.0;
+export const NET_ANIMATION_DURATION = 1.5;

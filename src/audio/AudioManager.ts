@@ -4,9 +4,10 @@ import {
   createRimSound,
   createChargeSound,
   createBuzzerSound,
+  createNetSound,
 } from './SoundEffects';
 
-export type SoundType = 'bounce' | 'swish' | 'rim' | 'charge' | 'buzzer';
+export type SoundType = 'bounce' | 'swish' | 'rim' | 'charge' | 'buzzer' | 'net';
 
 export class AudioManager {
   private ctx: AudioContext | null = null;
@@ -45,6 +46,9 @@ export class AudioManager {
         break;
       case 'buzzer':
         createBuzzerSound(ctx, this.masterGain);
+        break;
+      case 'net':
+        createNetSound(ctx, this.masterGain);
         break;
     }
   }

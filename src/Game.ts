@@ -17,6 +17,7 @@ import { HoopRenderer } from './rendering/HoopRenderer';
 import { HandRenderer } from './rendering/HandRenderer';
 import { TrajectoryRenderer } from './rendering/TrajectoryRenderer';
 import { HUDRenderer } from './rendering/HUDRenderer';
+import { NetRenderer } from './rendering/NetRenderer';
 
 // Physics
 import { PhysicsWorld } from './physics/PhysicsWorld';
@@ -51,6 +52,7 @@ export class Game {
   private handRenderer: HandRenderer;
   private trajectoryRenderer: TrajectoryRenderer;
   private hudRenderer: HUDRenderer;
+  private netRenderer: NetRenderer;
 
   // Physics
   private physicsWorld: PhysicsWorld;
@@ -89,6 +91,7 @@ export class Game {
     this.handRenderer = new HandRenderer(this.cameraController.getCamera());
     this.trajectoryRenderer = new TrajectoryRenderer(this.sceneManager.scene);
     this.hudRenderer = new HUDRenderer();
+    this.netRenderer = new NetRenderer(this.sceneManager.scene, this.eventBus);
 
     // Add camera to scene (needed for HandRenderer which is a child of camera)
     this.sceneManager.scene.add(this.cameraController.getCamera());
@@ -139,7 +142,10 @@ export class Game {
         this.gameState.shots,
         this.gameState.makes,
       );
-      this.audioManager.playSound('swish');
+      this.audioManager.playSound('net');
+      if (data.type === 'swish') {
+        this.audioManager.playSound('swish');
+      }
     });
 
     this.eventBus.on('shot:missed', () => {
@@ -278,6 +284,9 @@ export class Game {
       justShot,
     );
 
+    // Animate net
+    this.netRenderer.update();
+
     // Render
     this.sceneManager.render(this.cameraController.getCamera());
   }
@@ -295,6 +304,7 @@ export class Game {
     this.trajectoryRenderer.dispose();
     this.handRenderer.dispose();
     this.ballManager.dispose();
+    this.netRenderer.dispose();
     this.hoopRenderer.dispose();
     this.courtRenderer.dispose();
     this.hoopPhysics.dispose();

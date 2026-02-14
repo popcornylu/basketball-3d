@@ -78,6 +78,31 @@ export function createChargeSound(ctx: AudioContext, dest: AudioNode, chargeLeve
   osc.stop(ctx.currentTime + 0.1);
 }
 
+export function createNetSound(ctx: AudioContext, dest: AudioNode): void {
+  const bufferSize = ctx.sampleRate * 0.25;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+
+  const bandpass = ctx.createBiquadFilter();
+  bandpass.type = 'bandpass';
+  bandpass.frequency.setValueAtTime(1500, ctx.currentTime);
+  bandpass.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.25);
+  bandpass.Q.setValueAtTime(0.8, ctx.currentTime);
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.35, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+
+  source.connect(bandpass).connect(gain).connect(dest);
+  source.start(ctx.currentTime);
+  source.stop(ctx.currentTime + 0.25);
+}
+
 export function createBuzzerSound(ctx: AudioContext, dest: AudioNode): void {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();

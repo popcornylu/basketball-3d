@@ -17,7 +17,6 @@ export class HoopRenderer {
   constructor(scene: THREE.Scene) {
     this.createRim(scene);
     this.createBackboard(scene);
-    this.createNet(scene);
     this.createPole(scene);
   }
 
@@ -82,59 +81,6 @@ export class HoopRenderer {
     );
     scene.add(sq);
     this.objects.push(sq);
-  }
-
-  private createNet(scene: THREE.Scene): void {
-    const netHeight = 0.45;
-    const segments = 12;
-    const rings = 5;
-    const points: THREE.Vector3[] = [];
-
-    for (let ring = 0; ring <= rings; ring++) {
-      const t = ring / rings;
-      const y = HOOP_POSITION.y - t * netHeight;
-      const radius = RIM_RADIUS * (1 - t * 0.3); // tapers slightly
-
-      for (let seg = 0; seg <= segments; seg++) {
-        const angle = (seg / segments) * Math.PI * 2;
-        points.push(new THREE.Vector3(
-          HOOP_POSITION.x + Math.cos(angle) * radius,
-          y,
-          HOOP_POSITION.z + Math.sin(angle) * radius,
-        ));
-      }
-    }
-
-    // Horizontal rings
-    for (let ring = 0; ring <= rings; ring++) {
-      const ringPoints: THREE.Vector3[] = [];
-      const startIdx = ring * (segments + 1);
-      for (let seg = 0; seg <= segments; seg++) {
-        ringPoints.push(points[startIdx + seg]);
-      }
-      const ringGeo = new THREE.BufferGeometry().setFromPoints(ringPoints);
-      const ringLine = new THREE.Line(
-        ringGeo,
-        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }),
-      );
-      scene.add(ringLine);
-      this.objects.push(ringLine);
-    }
-
-    // Vertical strings
-    for (let seg = 0; seg < segments; seg++) {
-      const vertPoints: THREE.Vector3[] = [];
-      for (let ring = 0; ring <= rings; ring++) {
-        vertPoints.push(points[ring * (segments + 1) + seg]);
-      }
-      const vertGeo = new THREE.BufferGeometry().setFromPoints(vertPoints);
-      const vertLine = new THREE.Line(
-        vertGeo,
-        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }),
-      );
-      scene.add(vertLine);
-      this.objects.push(vertLine);
-    }
   }
 
   private createPole(scene: THREE.Scene): void {
