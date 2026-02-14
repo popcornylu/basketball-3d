@@ -162,7 +162,8 @@ export class PullShotController implements InputController {
     }
 
     const maxPull = this.getMaxPull();
-    const rawDx = this.state.aimDirection.x; // already normalized
+    // Visual dx follows the finger (screen-space), aim is inverted
+    const screenDx = -this.state.aimDirection.x;
     const charge = this.state.chargeLevel;
     // dy in screen space: positive = down
     const dy = charge; // when charging, dy = charge
@@ -170,7 +171,7 @@ export class PullShotController implements InputController {
 
     this.onPullUpdate({
       active: true,
-      dx: rawDx,
+      dx: screenDx,
       dy,
       charge,
       cancel,
