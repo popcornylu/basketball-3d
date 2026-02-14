@@ -249,11 +249,10 @@ export class Game {
     const chargeLevel = this.shootingMechanic.getChargeLevel();
     this.hudRenderer.updatePowerBar(input.isCharging ? input.chargeLevel : chargeLevel);
 
-    // 8. Update trajectory preview during charging (show predicted arc)
+    // 8. Update trajectory preview during charging
     const handBallForTrajectory = this.ballManager.getHandBall();
     if (handBallForTrajectory && state === ShootingState.CHARGING && input.chargeLevel > 0) {
       this.trajectoryRenderer.setVisible(true);
-      // Compute preview impulse matching the actual shoot() calculation
       const previewImpulse = this.shootingMechanic.shoot(input.chargeLevel, input.aimDirection.x);
       const ballPos = handBallForTrajectory.physics.getPosition();
       const startPos = new THREE.Vector3(ballPos.x, ballPos.y, ballPos.z);

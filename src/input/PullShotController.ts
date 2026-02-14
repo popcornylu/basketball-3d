@@ -12,6 +12,8 @@ export class PullShotController implements InputController {
   private startX = 0;
   private startY = 0;
   private pulling = false;
+  private currentScreenDx = 0;
+  private currentScreenDy = 0;
   private onPullUpdate: ((data: PullUpdateData) => void) | null = null;
 
   // Bound handlers for cleanup
@@ -103,11 +105,15 @@ export class PullShotController implements InputController {
     const dx = clamp(rawDx / maxPull, -1, 1);
     const dy = clamp(rawDy / maxPull, -1, 1);
 
+    // Track raw screen-space deltas for visual overlay
+    this.currentScreenDx = dx;
+    this.currentScreenDy = dy;
+
     // Charge level from downward pull only
     const charge = dy > 0 ? clamp(dy, 0, 1) : 0;
 
     this.state.chargeLevel = charge;
-    this.state.aimDirection.x = -dx;
+    this.state.aimDirection.x = -dx; // inverted for slingshot aim
     this.state.aimDirection.y = 0;
 
     this.emitPullUpdate();
@@ -151,6 +157,8 @@ export class PullShotController implements InputController {
     this.state = createDefaultInputState();
     this.pulling = false;
     this.activePointerId = null;
+    this.currentScreenDx = 0;
+    this.currentScreenDy = 0;
   }
 
   private emitPullUpdate(): void {
@@ -161,20 +169,12 @@ export class PullShotController implements InputController {
       return;
     }
 
-    const maxPull = this.getMaxPull();
-    // Visual dx follows the finger (screen-space), aim is inverted
-    const screenDx = -this.state.aimDirection.x;
-    const charge = this.state.chargeLevel;
-    // dy in screen space: positive = down
-    const dy = charge; // when charging, dy = charge
-    const cancel = charge === 0 && this.pulling;
-
     this.onPullUpdate({
       active: true,
-      dx: screenDx,
-      dy,
-      charge,
-      cancel,
+      dx: this.currentScreenDx,
+      dy: this.currentScreenDy,
+      charge: this.state.chargeLevel,
+      cancel: this.currentScreenDy <= 0 && this.pulling,
     });
   }
 }

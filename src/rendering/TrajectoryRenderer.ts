@@ -37,8 +37,10 @@ export class TrajectoryRenderer {
     let vy = velocity.y;
     let vz = velocity.z;
 
+    let lastI = 0;
     for (let i = 0; i < TRAJECTORY_POINTS; i++) {
       positions.setXYZ(i, px, py, pz);
+      lastI = i;
 
       // Euler integration step
       vx += GRAVITY.x * dt;
@@ -51,6 +53,12 @@ export class TrajectoryRenderer {
       if (py < 0) break;
     }
 
+    // Fill remaining points with the last valid position to avoid stray lines
+    for (let i = lastI + 1; i < TRAJECTORY_POINTS; i++) {
+      positions.setXYZ(i, px, Math.max(py, 0), pz);
+    }
+
+    this.line.geometry.setDrawRange(0, lastI + 1);
     positions.needsUpdate = true;
     this.line.geometry.computeBoundingSphere();
     this.line.computeLineDistances(); // required for dashed material

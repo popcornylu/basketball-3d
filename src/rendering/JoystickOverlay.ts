@@ -41,19 +41,9 @@ export class JoystickOverlay {
       pointerEvents: 'none',
     });
 
-    // Pull line (from base center to knob)
+    // Pull line (unused, kept for structure)
     this.line = document.createElement('div');
-    Object.assign(this.line.style, {
-      position: 'absolute',
-      left: '50%',
-      width: '2px',
-      height: '0px',
-      background: 'rgba(255,255,255,0.5)',
-      transformOrigin: 'top center',
-      transform: 'translateX(-50%)',
-      pointerEvents: 'none',
-      display: 'none',
-    });
+    this.line.style.display = 'none';
 
     // Knob
     this.knob = document.createElement('div');
@@ -129,19 +119,6 @@ export class JoystickOverlay {
       this.knob.style.background = `rgba(${r},${g},0,0.8)`;
     }
 
-    // Pull line from base center to knob center
-    const dist = Math.sqrt(pixelDx * pixelDx + pixelDy * pixelDy);
-    if (dist < 2) {
-      this.line.style.display = 'none';
-      return;
-    }
-    const angle = Math.atan2(pixelDx, pixelDy); // angle from downward axis
-    this.line.style.display = 'block';
-    this.line.style.height = `${dist}px`;
-    this.line.style.top = `${baseCenterY}px`;
-    this.line.style.left = `${window.innerWidth / 2}px`;
-    this.line.style.transformOrigin = 'top center';
-    this.line.style.transform = `translateX(-50%) rotate(${angle}rad)`;
   }
 
   private getMaxPull(): number {
