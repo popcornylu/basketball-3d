@@ -27,9 +27,7 @@ export class ShootingMechanic {
     }
   }
 
-  shoot(chargeLevel: number): { x: number; y: number; z: number } {
-    const aim = this.aimSystem.getAimOffset();
-
+  shoot(chargeLevel: number, aimX: number = 0): { x: number; y: number; z: number } {
     const startPos = new THREE.Vector3(
       BALL_RESET_POSITION.x,
       BALL_RESET_POSITION.y,
@@ -43,9 +41,8 @@ export class ShootingMechanic {
       HOOP_POSITION.z,
     );
 
-    // Apply aim offset to target position
-    targetPos.x += aim.yaw * 2;
-    targetPos.y += aim.pitch * 1.5;
+    // Apply aim offset: aimX is -1..1, map to ±1.5m offset at hoop
+    targetPos.x += aimX * 1.5;
 
     const dx = targetPos.x - startPos.x;
     const dy = targetPos.y - startPos.y;
@@ -53,9 +50,9 @@ export class ShootingMechanic {
     const horizontalDist = Math.sqrt(dx * dx + dz * dz);
 
     // Flight time determines arc: chargeLevel controls how high the ball arcs
-    // Lower charge = flatter/faster shot, higher charge = higher arc/steeper descent
+    // Lower charge = flatter/faster shot (undershoot), higher charge = higher arc (overshoot)
     // Sweet spot ~0.35-0.55 charge for a clean free throw
-    const flightTime = lerp(0.55, 0.85, chargeLevel);
+    const flightTime = lerp(0.4, 1.1, chargeLevel);
 
     // Compute launch velocities using kinematic equations:
     // horizontal: v_h = horizontalDist / t

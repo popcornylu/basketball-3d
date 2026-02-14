@@ -6,6 +6,7 @@ import { GameLoop } from './core/GameLoop';
 import { GameState, ShootingState } from './core/GameState';
 import {
   BALL_RESET_POSITION,
+  BALL_MASS,
 } from './core/Constants';
 
 // Rendering
@@ -28,8 +29,10 @@ import { BallManager } from './shooting/BallManager';
 
 // Input
 import { InputManager } from './input/InputManager';
-import { MouseController } from './input/MouseController';
-import { KeyboardController } from './input/KeyboardController';
+import { PullShotController } from './input/PullShotController';
+
+// Joystick overlay
+import { JoystickOverlay } from './rendering/JoystickOverlay';
 
 // Audio
 import { AudioManager } from './audio/AudioManager';
@@ -60,6 +63,7 @@ export class Game {
 
   // Input
   private inputManager: InputManager;
+  private joystickOverlay: JoystickOverlay;
 
   // Audio
   private audioManager: AudioManager;
@@ -105,13 +109,11 @@ export class Game {
 
     // --- Input ---
     this.inputManager = new InputManager();
-    const mouseController = new MouseController();
-    mouseController.setCanvas(this.sceneManager.domElement);
-    const keyboardController = new KeyboardController();
-
-    this.inputManager.registerController(mouseController);
-    this.inputManager.registerController(keyboardController);
-    this.inputManager.setActiveController('keyboard'); // Keyboard as default (no pointer lock needed)
+    this.joystickOverlay = new JoystickOverlay(container);
+    const pullShotController = new PullShotController(this.joystickOverlay.getKnobElement());
+    pullShotController.setOnPullUpdate((data) => this.joystickOverlay.update(data));
+    this.inputManager.registerController(pullShotController);
+    this.inputManager.setActiveController('pullshot');
 
     // --- Audio ---
     this.audioManager = new AudioManager();
@@ -152,18 +154,6 @@ export class Game {
       this.audioManager.playSound('bounce');
     });
 
-    // Switch input controller with number keys
-    document.addEventListener('keydown', (e) => {
-      if (e.key === '1') {
-        this.inputManager.setActiveController('keyboard');
-        const mc = this.inputManager.getActiveController();
-        if (mc && 'setCanvas' in mc) {
-          (mc as MouseController).setCanvas(this.sceneManager.domElement);
-        }
-      } else if (e.key === '2') {
-        this.inputManager.setActiveController('mouse');
-      }
-    });
   }
 
   private setupGameLoop(): void {
@@ -216,8 +206,7 @@ export class Game {
       case ShootingState.CHARGING: {
         if (input.shootTriggered) {
           // Compute impulse and shoot via BallManager
-          this.shootingMechanic.update(input, dt);
-          const impulse = this.shootingMechanic.shoot(input.chargeLevel);
+          const impulse = this.shootingMechanic.shoot(input.chargeLevel, input.aimDirection.x);
           this.ballManager.shootHandBall(impulse);
 
           this.gameState.addShot();
@@ -225,6 +214,10 @@ export class Game {
           this.trajectoryRenderer.setVisible(false);
 
           // Reset shooting mechanic for next shot and go back to AIMING
+          this.shootingMechanic.reset();
+          this.gameState.transition(ShootingState.AIMING);
+        } else if (!input.isCharging) {
+          // Released without shooting (cancel / drag up) — go back to AIMING
           this.shootingMechanic.reset();
           this.gameState.transition(ShootingState.AIMING);
         } else {
@@ -249,22 +242,24 @@ export class Game {
     // 5. Detect ball bounces on ground (for sound)
     this.ballManager.detectBounces(this.lastBallBounceTime);
 
-    // 6. Update camera from aim
-    this.cameraController.update(input.aimDirection.x, input.aimDirection.y);
+    // 6. Update camera (fixed forward, no aim panning)
+    this.cameraController.update(0, 0);
 
     // 7. Update HUD power bar
     const chargeLevel = this.shootingMechanic.getChargeLevel();
     this.hudRenderer.updatePowerBar(input.isCharging ? input.chargeLevel : chargeLevel);
 
-    // 8. Update trajectory preview during aiming/charging
+    // 8. Update trajectory preview during charging (show predicted arc)
     const handBallForTrajectory = this.ballManager.getHandBall();
-    if (handBallForTrajectory && (state === ShootingState.AIMING || state === ShootingState.CHARGING)) {
+    if (handBallForTrajectory && state === ShootingState.CHARGING && input.chargeLevel > 0) {
       this.trajectoryRenderer.setVisible(true);
+      // Compute preview impulse matching the actual shoot() calculation
+      const previewImpulse = this.shootingMechanic.shoot(input.chargeLevel, input.aimDirection.x);
       const ballPos = handBallForTrajectory.physics.getPosition();
       const startPos = new THREE.Vector3(ballPos.x, ballPos.y, ballPos.z);
-      const aimDir = this.cameraController.getAimDirection();
-      const power = state === ShootingState.CHARGING ? input.chargeLevel * 12 : 5;
-      this.trajectoryRenderer.update(startPos, aimDir, power);
+      const dir = new THREE.Vector3(previewImpulse.x, previewImpulse.y, previewImpulse.z).normalize();
+      const power = new THREE.Vector3(previewImpulse.x, previewImpulse.y, previewImpulse.z).length() / BALL_MASS;
+      this.trajectoryRenderer.update(startPos, dir, power);
     } else {
       this.trajectoryRenderer.setVisible(false);
     }
@@ -295,6 +290,7 @@ export class Game {
   dispose(): void {
     this.gameLoop.stop();
     this.inputManager.dispose();
+    this.joystickOverlay.dispose();
     this.audioManager.dispose();
     this.hudRenderer.dispose();
     this.trajectoryRenderer.dispose();
