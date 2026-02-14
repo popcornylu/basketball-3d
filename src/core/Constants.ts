@@ -19,7 +19,7 @@ export const COURT_Y = 0; // Floor Y position
 
 // Camera / Player
 export const PLAYER_HEIGHT = 1.8; // (m)
-export const PLAYER_POSITION = { x: 0, y: PLAYER_HEIGHT, z: FREE_THROW_DIST }; // At free throw line
+export const PLAYER_POSITION = { x: 0, y: PLAYER_HEIGHT, z: FREE_THROW_DIST + 1}; // At free throw line
 
 // Hoop position (at the basket end)
 export const HOOP_POSITION = { x: 0, y: HOOP_HEIGHT, z: 0 };
@@ -46,7 +46,7 @@ export const NORMAL_POINTS = 2;
 
 // Ball reset - positioned in front of player, clearly visible from camera
 export const BALL_RESET_POSITION = {
-  x: 0.15,
+  x: 0,
   y: PLAYER_HEIGHT - 0.25,
   z: FREE_THROW_DIST - 0.8,
 };
@@ -76,6 +76,6 @@ export const PLAYER_COLORS = [0xff6a00, 0x3399ff, 0x33cc66]; // orange, blue, gr
 export const PLAYER_KNOB_COLORS = ['#ff6a00', '#3399ff', '#33cc66'];
 export const PLAYER_OFFSETS_X: Record<number, number[]> = {
   1: [0],
-  2: [-0.15, 0.15],
-  3: [-0.25, 0, 0.25],
+  2: [-0.2, 0.2],
+  3: [-0.4, 0, 0.4],
 };

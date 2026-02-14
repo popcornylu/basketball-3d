@@ -1,5 +1,6 @@
 import type RAPIER_TYPE from '@dimforge/rapier3d-compat';
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 import { EventBus } from './core/EventBus';
 import { GameLoop } from './core/GameLoop';
@@ -7,6 +8,7 @@ import { GameState, ShootingState } from './core/GameState';
 import {
   BALL_RESET_POSITION,
   BALL_MASS,
+  HOOP_POSITION,
   PLAYER_COLORS,
   PLAYER_KNOB_COLORS,
   PLAYER_OFFSETS_X,
@@ -80,6 +82,11 @@ export class Game {
 
   // State
   private lastBallBounceTime = { value: 0 };
+
+  // Debug camera
+  private orbitControls: OrbitControls | null = null;
+  private debugCameraActive = false;
+  private debugPanel: HTMLElement | null = null;
 
   constructor(RAPIER: typeof RAPIER_TYPE, playerCount: number = 1) {
     this.playerCount = playerCount;
@@ -157,6 +164,7 @@ export class Game {
     this.setupEventHandlers();
     this.setupGameLoop();
     this.setupResize();
+    this.setupDebugCamera();
 
     // HUD config
     this.hudRenderer.updateScore(0, 0, 0);
@@ -209,6 +217,84 @@ export class Game {
       this.cameraController.setAspect(w / h);
       this.updateKnobPositions();
     });
+  }
+
+  private setupDebugCamera(): void {
+    const camera = this.cameraController.getCamera();
+    this.orbitControls = new OrbitControls(camera, this.sceneManager.renderer.domElement);
+    this.orbitControls.target.set(0, HOOP_POSITION.y, 0);
+    this.orbitControls.enableDamping = true;
+    this.orbitControls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: undefined as any,
+      RIGHT: THREE.MOUSE.PAN,
+    };
+    this.orbitControls.enabled = false;
+
+    // Debug info panel
+    const panel = document.createElement('div');
+    Object.assign(panel.style, {
+      position: 'absolute',
+      top: '60px',
+      left: '10px',
+      color: '#0f0',
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      background: 'rgba(0,0,0,0.7)',
+      padding: '8px',
+      borderRadius: '4px',
+      zIndex: '300',
+      display: 'none',
+      whiteSpace: 'pre',
+      pointerEvents: 'none',
+    });
+    document.getElementById('app')!.appendChild(panel);
+    this.debugPanel = panel;
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'c' || e.key === 'C') {
+        this.debugCameraActive = !this.debugCameraActive;
+        if (this.debugCameraActive) {
+          // Sync OrbitControls target with where the camera is looking
+          const cam = this.cameraController.getCamera();
+          const dir = new THREE.Vector3();
+          cam.getWorldDirection(dir);
+          this.orbitControls!.target.copy(cam.position).addScaledVector(dir, 5);
+        } else {
+          // Restore camera to default when exiting debug mode
+          this.cameraController.resetToDefault();
+        }
+        this.orbitControls!.enabled = this.debugCameraActive;
+        this.debugPanel!.style.display = this.debugCameraActive ? '' : 'none';
+      }
+    });
+
+    // Middle-click resets camera to default position
+    this.sceneManager.renderer.domElement.addEventListener('pointerdown', (e) => {
+      if (e.button === 1 && this.debugCameraActive) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.cameraController.resetToDefault();
+        // Sync OrbitControls target with reset camera look direction
+        const cam = this.cameraController.getCamera();
+        const dir = new THREE.Vector3();
+        cam.getWorldDirection(dir);
+        this.orbitControls!.target.copy(cam.position).addScaledVector(dir, 5);
+        this.orbitControls!.update();
+      }
+    }, { capture: true });
+  }
+
+  private updateDebugPanel(): void {
+    if (!this.debugCameraActive || !this.debugPanel) return;
+    const cam = this.cameraController.getCamera();
+    const p = cam.position;
+    const r = cam.rotation;
+    this.debugPanel.textContent =
+      `[C] Debug Camera ON\n` +
+      `pos:  x=${p.x.toFixed(2)}  y=${p.y.toFixed(2)}  z=${p.z.toFixed(2)}\n` +
+      `rot:  x=${(r.x * 180 / Math.PI).toFixed(1)}°  y=${(r.y * 180 / Math.PI).toFixed(1)}°\n` +
+      `fov:  ${cam.fov}°  aspect: ${cam.aspect.toFixed(3)}`;
   }
 
   /** Project each player's ball reset position to screen pixels and position knobs there. */
@@ -322,7 +408,9 @@ export class Game {
     this.physicsWorld.step();
 
     // Update camera
-    this.cameraController.update(0, 0);
+    if (!this.debugCameraActive) {
+      this.cameraController.update(0, 0);
+    }
 
     // Update HUD power bar (1P only — use first player's charge)
     if (this.playerCount === 1) {
@@ -342,11 +430,19 @@ export class Game {
     // Animate net
     this.netRenderer.update();
 
+    // Update orbit controls if active
+    if (this.debugCameraActive && this.orbitControls) {
+      this.orbitControls.update();
+    }
+
     // Render
     this.sceneManager.render(this.cameraController.getCamera());
 
     // Keep knobs aligned with projected ball positions every frame
     this.updateKnobPositions();
+
+    // Debug panel
+    this.updateDebugPanel();
   }
 
   start(): void {
@@ -362,6 +458,8 @@ export class Game {
       player.trajectory.dispose();
     }
     this.joystickOverlay.dispose();
+    this.orbitControls?.dispose();
+    this.debugPanel?.remove();
     this.audioManager.dispose();
     this.hudRenderer.dispose();
     this.netRenderer.dispose();

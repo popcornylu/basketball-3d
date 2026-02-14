@@ -45,6 +45,13 @@ export class CameraController {
     this.camera.updateProjectionMatrix();
   }
 
+  resetToDefault(): void {
+    this.pitch = degToRad(10);
+    this.yaw = 0;
+    this.camera.position.set(PLAYER_POSITION.x, PLAYER_POSITION.y, PLAYER_POSITION.z);
+    this.applyRotation();
+  }
+
   private applyRotation(): void {
     // Build euler: looking toward negative Z by default, apply pitch (x) and yaw (y)
     this.camera.rotation.order = 'YXZ';
