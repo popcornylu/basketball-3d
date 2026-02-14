@@ -28,8 +28,6 @@
     }
     canvas {
       display: block;
-      width: 100%;
-      height: 100%;
     }
     #loading {
       position: absolute;
@@ -100,10 +98,56 @@
       font-size: 14px;
       text-align: center;
     }
+    #start-menu {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      background: rgba(0,0,0,0.85);
+    }
+    #start-menu h1 {
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 48px;
+      margin-bottom: 32px;
+    }
+    #mode-buttons {
+      display: flex;
+      flex-direction: row;
+      gap: 16px;
+    }
+    #mode-buttons button {
+      padding: 16px 32px;
+      font-size: 20px;
+      color: #fff;
+      background: rgba(255,255,255,0.12);
+      border: 2px solid rgba(255,255,255,0.4);
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: Arial, sans-serif;
+      transition: background 0.15s;
+    }
+    #mode-buttons button:hover {
+      background: rgba(255,255,255,0.25);
+    }
   </style>
 </head>
 <body>
   <div id="app">
+    <div id="start-menu" style="display: none;">
+      <h1>3D Basketball</h1>
+      <div id="mode-buttons">
+        <button data-players="1">1 Player</button>
+        <button data-players="2">2 Players</button>
+        <button data-players="3">3 Players</button>
+      </div>
+    </div>
     <div id="loading">Loading...</div>
     <div id="hud" style="display: none;">
       <div id="score-display">0</div>

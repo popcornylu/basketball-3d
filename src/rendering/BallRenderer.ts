@@ -7,9 +7,10 @@ export class BallRenderer {
   private static sharedTexture: THREE.CanvasTexture | null = null;
   private static instanceCount = 0;
 
+  private instanceMaterial: THREE.MeshStandardMaterial | null = null;
   readonly mesh: THREE.Mesh;
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, color?: number) {
     if (!BallRenderer.sharedGeometry) {
       BallRenderer.sharedTexture = BallRenderer.createBallTexture();
       BallRenderer.sharedGeometry = new THREE.SphereGeometry(BALL_RADIUS, 32, 32);
@@ -22,7 +23,20 @@ export class BallRenderer {
     }
     BallRenderer.instanceCount++;
 
-    this.mesh = new THREE.Mesh(BallRenderer.sharedGeometry, BallRenderer.sharedMaterial!);
+    let material: THREE.MeshStandardMaterial;
+    if (color !== undefined && color !== 0xff6a00) {
+      this.instanceMaterial = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.65,
+        metalness: 0.05,
+        map: BallRenderer.sharedTexture,
+      });
+      material = this.instanceMaterial;
+    } else {
+      material = BallRenderer.sharedMaterial!;
+    }
+
+    this.mesh = new THREE.Mesh(BallRenderer.sharedGeometry, material);
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
     this.mesh.position.set(
@@ -101,6 +115,10 @@ export class BallRenderer {
 
   dispose(): void {
     this.mesh.removeFromParent();
+    if (this.instanceMaterial) {
+      this.instanceMaterial.dispose();
+      this.instanceMaterial = null;
+    }
     BallRenderer.instanceCount--;
     if (BallRenderer.instanceCount <= 0) {
       BallRenderer.sharedGeometry?.dispose();

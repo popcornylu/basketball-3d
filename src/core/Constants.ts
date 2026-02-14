@@ -70,3 +70,12 @@ export const NET_TWIST_AMPLITUDE = 0.15;
 export const NET_SPRING_DAMPING = 4.0;
 export const NET_SPRING_FREQUENCY = 10.0;
 export const NET_ANIMATION_DURATION = 1.5;
+
+// Player configuration
+export const PLAYER_COLORS = [0xff6a00, 0x3399ff, 0x33cc66]; // orange, blue, green
+export const PLAYER_KNOB_COLORS = ['#ff6a00', '#3399ff', '#33cc66'];
+export const PLAYER_OFFSETS_X: Record<number, number[]> = {
+  1: [0],
+  2: [-0.15, 0.15],
+  3: [-0.25, 0, 0.25],
+};

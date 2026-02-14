@@ -8,13 +8,14 @@ export interface PullUpdateData {
 
 export class JoystickOverlay {
   private container: HTMLElement;
-  private base: HTMLElement;
-  private knob: HTMLElement;
-  private line: HTMLElement;
+  private bases: HTMLElement[] = [];
+  private knobs: HTMLElement[] = [];
   private baseSize = 80;
   private knobSize = 44;
+  // Per-player base center in screen pixels
+  private baseScreenPos: { x: number; y: number }[] = [];
 
-  constructor(parent: HTMLElement) {
+  constructor(parent: HTMLElement, playerCount: number, knobColors: string[]) {
     this.container = document.createElement('div');
     Object.assign(this.container.style, {
       position: 'absolute',
@@ -26,103 +27,121 @@ export class JoystickOverlay {
       zIndex: '100',
     });
 
-    // Base ring
-    this.base = document.createElement('div');
-    Object.assign(this.base.style, {
-      position: 'absolute',
-      bottom: '25vh',
-      left: '50%',
-      transform: 'translate(-50%, 50%)',
-      width: `${this.baseSize}px`,
-      height: `${this.baseSize}px`,
-      borderRadius: '50%',
-      border: '2px solid rgba(255,255,255,0.4)',
-      background: 'rgba(255,255,255,0.08)',
-      pointerEvents: 'none',
-    });
+    for (let i = 0; i < playerCount; i++) {
+      const color = knobColors[i] ?? '#fff';
 
-    // Pull line (unused, kept for structure)
-    this.line = document.createElement('div');
-    this.line.style.display = 'none';
+      // Base ring
+      const base = document.createElement('div');
+      Object.assign(base.style, {
+        position: 'absolute',
+        width: `${this.baseSize}px`,
+        height: `${this.baseSize}px`,
+        borderRadius: '50%',
+        border: '2px solid rgba(255,255,255,0.4)',
+        background: 'rgba(255,255,255,0.08)',
+        pointerEvents: 'none',
+        // Hidden until setBaseScreenPosition is called
+        display: 'none',
+      });
 
-    // Knob
-    this.knob = document.createElement('div');
-    Object.assign(this.knob.style, {
-      position: 'absolute',
-      bottom: '25vh',
-      left: '50%',
-      transform: 'translate(-50%, 50%)',
-      width: `${this.knobSize}px`,
-      height: `${this.knobSize}px`,
-      borderRadius: '50%',
-      background: 'rgba(255,255,255,0.6)',
-      border: '2px solid rgba(255,255,255,0.8)',
-      pointerEvents: 'auto',
-      touchAction: 'none',
-      cursor: 'grab',
-      transition: 'background 0.1s',
-    });
+      // Knob
+      const knob = document.createElement('div');
+      Object.assign(knob.style, {
+        position: 'absolute',
+        width: `${this.knobSize}px`,
+        height: `${this.knobSize}px`,
+        borderRadius: '50%',
+        background: 'rgba(255,255,255,0.6)',
+        border: `2px solid ${color}`,
+        pointerEvents: 'auto',
+        touchAction: 'none',
+        cursor: 'grab',
+        transition: 'background 0.1s',
+        // Hidden until setBaseScreenPosition is called
+        display: 'none',
+      });
 
-    this.container.appendChild(this.line);
-    this.container.appendChild(this.base);
-    this.container.appendChild(this.knob);
+      this.container.appendChild(base);
+      this.container.appendChild(knob);
+      this.bases.push(base);
+      this.knobs.push(knob);
+      this.baseScreenPos.push({ x: 0, y: 0 });
+    }
+
     parent.appendChild(this.container);
   }
 
-  getKnobElement(): HTMLElement {
-    return this.knob;
+  getKnobElement(playerIndex: number): HTMLElement {
+    return this.knobs[playerIndex];
   }
 
-  private getBaseCenterY(): number {
-    // Base is at bottom: 25vh, centered via translate(_, 50%)
-    return window.innerHeight * 0.75;
+  /** Set the base+knob rest position from projected screen coordinates (pixels). */
+  setBaseScreenPosition(playerIndex: number, screenX: number, screenY: number): void {
+    this.baseScreenPos[playerIndex] = { x: screenX, y: screenY };
+
+    const base = this.bases[playerIndex];
+    const knob = this.knobs[playerIndex];
+    if (!base || !knob) return;
+
+    // Position base centered at screen coords
+    Object.assign(base.style, {
+      display: '',
+      left: `${screenX - this.baseSize / 2}px`,
+      top: `${screenY - this.baseSize / 2}px`,
+    });
+
+    // Snap knob to base center (rest position)
+    Object.assign(knob.style, {
+      display: '',
+      left: `${screenX - this.knobSize / 2}px`,
+      top: `${screenY - this.knobSize / 2}px`,
+      transform: 'none',
+      background: 'rgba(255,255,255,0.6)',
+    });
   }
 
-  update(data: PullUpdateData): void {
-    const baseCenterY = this.getBaseCenterY();
+  private getMaxPull(): number {
+    return Math.min(window.innerWidth, window.innerHeight) * 0.3;
+  }
+
+  update(playerIndex: number, data: PullUpdateData): void {
+    const knob = this.knobs[playerIndex];
+    if (!knob) return;
+
+    const basePos = this.baseScreenPos[playerIndex];
 
     if (!data.active) {
-      // Snap knob back to center
-      Object.assign(this.knob.style, {
-        top: '',
-        bottom: '25vh',
-        left: '50%',
-        transform: 'translate(-50%, 50%)',
+      // Snap knob back to base center
+      Object.assign(knob.style, {
+        left: `${basePos.x - this.knobSize / 2}px`,
+        top: `${basePos.y - this.knobSize / 2}px`,
+        transform: 'none',
         background: 'rgba(255,255,255,0.6)',
       });
-      this.line.style.display = 'none';
       return;
     }
 
     const maxPull = this.getMaxPull();
     const pixelDx = data.dx * maxPull;
-    const pixelDy = data.dy * maxPull; // positive = down on screen
+    const pixelDy = data.dy * maxPull;
 
-    // Position knob using top (easier for pixel math)
-    const knobCenterX = window.innerWidth / 2 + pixelDx;
-    const knobCenterY = baseCenterY + pixelDy;
+    const knobCenterX = basePos.x + pixelDx;
+    const knobCenterY = basePos.y + pixelDy;
 
-    Object.assign(this.knob.style, {
-      bottom: '',
-      top: `${knobCenterY - this.knobSize / 2}px`,
+    Object.assign(knob.style, {
       left: `${knobCenterX - this.knobSize / 2}px`,
+      top: `${knobCenterY - this.knobSize / 2}px`,
       transform: 'none',
     });
 
-    // Color based on state
     if (data.cancel) {
-      this.knob.style.background = 'rgba(160,160,160,0.7)';
+      knob.style.background = 'rgba(160,160,160,0.7)';
     } else {
       const charge = data.charge;
       const r = Math.round(charge * 255);
       const g = Math.round((1 - charge * 0.5) * 255);
-      this.knob.style.background = `rgba(${r},${g},0,0.8)`;
+      knob.style.background = `rgba(${r},${g},0,0.8)`;
     }
-
-  }
-
-  private getMaxPull(): number {
-    return Math.min(window.innerWidth, window.innerHeight) * 0.3;
   }
 
   dispose(): void {

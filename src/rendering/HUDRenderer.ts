@@ -40,6 +40,13 @@ export class HUDRenderer {
     }, duration);
   }
 
+  setMultiplayer(isMultiplayer: boolean): void {
+    const powerBar = document.getElementById('power-bar-container');
+    const instructions = document.getElementById('instructions');
+    if (powerBar) powerBar.style.display = isMultiplayer ? 'none' : '';
+    if (instructions) instructions.style.display = isMultiplayer ? 'none' : '';
+  }
+
   dispose(): void {
     if (this.messageTimer !== null) {
       clearTimeout(this.messageTimer);

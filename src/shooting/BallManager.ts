@@ -18,16 +18,21 @@ export class BallManager {
   private handBall: { physics: BallPhysics; renderer: BallRenderer } | null;
   private flyingBalls: FlyingBall[] = [];
   private handBallSpawnAt: number = 0; // timestamp when next hand ball should spawn
+  private ballColor: number | undefined;
+  private resetPosition: { x: number; y: number; z: number };
 
   constructor(
     private physicsWorld: PhysicsWorld,
     private scene: THREE.Scene,
     private eventBus: EventBus,
     private hoopPhysics: HoopPhysics,
+    options?: { ballColor?: number; resetPosition?: { x: number; y: number; z: number } },
   ) {
+    this.ballColor = options?.ballColor;
+    this.resetPosition = options?.resetPosition ?? BALL_RESET_POSITION;
     this.handBall = this.createBall();
     this.handBall.physics.setGravityScale(0);
-    this.handBall.physics.reset(BALL_RESET_POSITION);
+    this.handBall.physics.reset(this.resetPosition);
   }
 
   shootHandBall(impulse: { x: number; y: number; z: number }): void {
@@ -38,7 +43,7 @@ export class BallManager {
     }
 
     const ball = this.handBall;
-    ball.physics.reset(BALL_RESET_POSITION);
+    ball.physics.reset(this.resetPosition);
     ball.physics.setGravityScale(1);
     ball.physics.applyImpulse(impulse);
 
@@ -62,7 +67,7 @@ export class BallManager {
     if (!this.handBall && performance.now() >= this.handBallSpawnAt) {
       this.handBall = this.createBall();
       this.handBall.physics.setGravityScale(0);
-      this.handBall.physics.reset(BALL_RESET_POSITION);
+      this.handBall.physics.reset(this.resetPosition);
     }
 
     const toRemove: number[] = [];
@@ -130,7 +135,7 @@ export class BallManager {
 
   private createBall(): { physics: BallPhysics; renderer: BallRenderer } {
     const physics = new BallPhysics(this.physicsWorld);
-    const renderer = new BallRenderer(this.scene);
+    const renderer = new BallRenderer(this.scene, this.ballColor);
     return { physics, renderer };
   }
 

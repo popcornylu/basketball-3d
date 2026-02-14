@@ -6,13 +6,13 @@ const TRAJECTORY_POINTS = 40;
 export class TrajectoryRenderer {
   private line: THREE.Line;
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, color?: number) {
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(TRAJECTORY_POINTS * 3);
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
     const mat = new THREE.LineDashedMaterial({
-      color: 0xffffff,
+      color: color ?? 0xffffff,
       dashSize: 0.15,
       gapSize: 0.1,
       transparent: true,

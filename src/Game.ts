@@ -7,6 +7,9 @@ import { GameState, ShootingState } from './core/GameState';
 import {
   BALL_RESET_POSITION,
   BALL_MASS,
+  PLAYER_COLORS,
+  PLAYER_KNOB_COLORS,
+  PLAYER_OFFSETS_X,
 } from './core/Constants';
 
 // Rendering
@@ -14,7 +17,6 @@ import { SceneManager } from './rendering/SceneManager';
 import { CameraController } from './rendering/CameraController';
 import { CourtRenderer } from './rendering/CourtRenderer';
 import { HoopRenderer } from './rendering/HoopRenderer';
-import { HandRenderer } from './rendering/HandRenderer';
 import { TrajectoryRenderer } from './rendering/TrajectoryRenderer';
 import { HUDRenderer } from './rendering/HUDRenderer';
 import { NetRenderer } from './rendering/NetRenderer';
@@ -29,7 +31,6 @@ import { ShootingMechanic } from './shooting/ShootingMechanic';
 import { BallManager } from './shooting/BallManager';
 
 // Input
-import { InputManager } from './input/InputManager';
 import { PullShotController } from './input/PullShotController';
 
 // Joystick overlay
@@ -37,6 +38,16 @@ import { JoystickOverlay } from './rendering/JoystickOverlay';
 
 // Audio
 import { AudioManager } from './audio/AudioManager';
+
+interface PlayerData {
+  controller: PullShotController;
+  mechanic: ShootingMechanic;
+  ballManager: BallManager;
+  trajectory: TrajectoryRenderer;
+  state: ShootingState;
+  shotFiredTime: number;
+  resetPosition: { x: number; y: number; z: number };
+}
 
 export class Game {
   // Core
@@ -49,8 +60,6 @@ export class Game {
   private cameraController: CameraController;
   private courtRenderer: CourtRenderer;
   private hoopRenderer: HoopRenderer;
-  private handRenderer: HandRenderer;
-  private trajectoryRenderer: TrajectoryRenderer;
   private hudRenderer: HUDRenderer;
   private netRenderer: NetRenderer;
 
@@ -59,22 +68,21 @@ export class Game {
   private courtPhysics: CourtPhysics;
   private hoopPhysics: HoopPhysics;
 
-  // Shooting
-  private shootingMechanic: ShootingMechanic;
-  private ballManager: BallManager;
-
-  // Input
-  private inputManager: InputManager;
+  // Joystick overlay
   private joystickOverlay: JoystickOverlay;
 
   // Audio
   private audioManager: AudioManager;
 
+  // Players
+  private players: PlayerData[] = [];
+  private playerCount: number;
+
   // State
   private lastBallBounceTime = { value: 0 };
-  private shotFiredTime = 0;
 
-  constructor(RAPIER: typeof RAPIER_TYPE) {
+  constructor(RAPIER: typeof RAPIER_TYPE, playerCount: number = 1) {
+    this.playerCount = playerCount;
     const container = document.getElementById('app')!;
 
     // --- Core ---
@@ -88,12 +96,10 @@ export class Game {
     this.cameraController = new CameraController(aspect);
     this.courtRenderer = new CourtRenderer(this.sceneManager.scene);
     this.hoopRenderer = new HoopRenderer(this.sceneManager.scene);
-    this.handRenderer = new HandRenderer(this.cameraController.getCamera());
-    this.trajectoryRenderer = new TrajectoryRenderer(this.sceneManager.scene);
     this.hudRenderer = new HUDRenderer();
     this.netRenderer = new NetRenderer(this.sceneManager.scene, this.eventBus);
 
-    // Add camera to scene (needed for HandRenderer which is a child of camera)
+    // Add camera to scene
     this.sceneManager.scene.add(this.cameraController.getCamera());
 
     // --- Physics ---
@@ -101,22 +107,48 @@ export class Game {
     this.courtPhysics = new CourtPhysics(this.physicsWorld);
     this.hoopPhysics = new HoopPhysics(this.physicsWorld);
 
-    // --- Shooting ---
-    this.shootingMechanic = new ShootingMechanic();
-    this.ballManager = new BallManager(
-      this.physicsWorld,
-      this.sceneManager.scene,
-      this.eventBus,
-      this.hoopPhysics,
+    // --- Joystick overlay ---
+    this.joystickOverlay = new JoystickOverlay(
+      container,
+      playerCount,
+      PLAYER_KNOB_COLORS.slice(0, playerCount),
     );
 
-    // --- Input ---
-    this.inputManager = new InputManager();
-    this.joystickOverlay = new JoystickOverlay(container);
-    const pullShotController = new PullShotController(this.joystickOverlay.getKnobElement());
-    pullShotController.setOnPullUpdate((data) => this.joystickOverlay.update(data));
-    this.inputManager.registerController(pullShotController);
-    this.inputManager.setActiveController('pullshot');
+    // --- Per-player setup ---
+    const offsets = PLAYER_OFFSETS_X[playerCount] ?? [0];
+    for (let i = 0; i < playerCount; i++) {
+      const resetPos = {
+        x: BALL_RESET_POSITION.x + offsets[i],
+        y: BALL_RESET_POSITION.y,
+        z: BALL_RESET_POSITION.z,
+      };
+      const color = PLAYER_COLORS[i];
+
+      const knobEl = this.joystickOverlay.getKnobElement(i);
+      const controller = new PullShotController(knobEl);
+      controller.setOnPullUpdate((data) => this.joystickOverlay.update(i, data));
+      controller.enable();
+
+      const mechanic = new ShootingMechanic(resetPos);
+      const ballManager = new BallManager(
+        this.physicsWorld,
+        this.sceneManager.scene,
+        this.eventBus,
+        this.hoopPhysics,
+        { ballColor: color, resetPosition: resetPos },
+      );
+      const trajectory = new TrajectoryRenderer(this.sceneManager.scene, color);
+
+      this.players.push({
+        controller,
+        mechanic,
+        ballManager,
+        trajectory,
+        state: ShootingState.AIMING,
+        shotFiredTime: 0,
+        resetPosition: resetPos,
+      });
+    }
 
     // --- Audio ---
     this.audioManager = new AudioManager();
@@ -126,13 +158,16 @@ export class Game {
     this.setupGameLoop();
     this.setupResize();
 
-    // Initial HUD
+    // HUD config
     this.hudRenderer.updateScore(0, 0, 0);
     this.hudRenderer.updatePowerBar(0);
+    if (playerCount > 1) {
+      this.hudRenderer.setMultiplayer(true);
+    }
+
   }
 
   private setupEventHandlers(): void {
-    // Scoring
     this.eventBus.on('shot:scored', (data) => {
       this.gameState.addScore(data.points);
       const msg = data.type === 'swish' ? 'SWISH!' : 'SCORE!';
@@ -159,7 +194,6 @@ export class Game {
     this.eventBus.on('ball:bounce', () => {
       this.audioManager.playSound('bounce');
     });
-
   }
 
   private setupGameLoop(): void {
@@ -173,122 +207,146 @@ export class Game {
       const w = container.clientWidth;
       const h = container.clientHeight;
       this.cameraController.setAspect(w / h);
+      this.updateKnobPositions();
     });
   }
 
+  /** Project each player's ball reset position to screen pixels and position knobs there. */
+  private lastKnobW = 0;
+  private lastKnobH = 0;
+
+  private updateKnobPositions(): void {
+    const container = document.getElementById('app')!;
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+
+    // Re-sync renderer + camera if container size changed
+    if (w !== this.lastKnobW || h !== this.lastKnobH) {
+      this.lastKnobW = w;
+      this.lastKnobH = h;
+      this.sceneManager.renderer.setSize(w, h);
+      this.cameraController.setAspect(w / h);
+    }
+
+    const camera = this.cameraController.getCamera();
+    camera.updateMatrixWorld(true);
+
+    for (let i = 0; i < this.players.length; i++) {
+      const rp = this.players[i].resetPosition;
+      const pos = new THREE.Vector3(rp.x, rp.y, rp.z);
+      pos.project(camera); // NDC: x,y in [-1,1]
+      const screenX = (pos.x * 0.5 + 0.5) * w;
+      const screenY = (-pos.y * 0.5 + 0.5) * h;
+      this.joystickOverlay.setBaseScreenPosition(i, screenX, screenY);
+    }
+  }
+
   private fixedUpdate(dt: number): void {
-    // 1. Snapshot input state BEFORE update (getState returns a mutable reference,
-    //    and update() calls clearTriggers which would zero shootTriggered/resetTriggered)
-    const raw = this.inputManager.getState();
-    const input = {
-      aimDirection: { x: raw.aimDirection.x, y: raw.aimDirection.y },
-      chargeLevel: raw.chargeLevel,
-      isCharging: raw.isCharging,
-      shootTriggered: raw.shootTriggered,
-      resetTriggered: raw.resetTriggered,
-    };
-    this.inputManager.update(dt);
+    // Update each player
+    for (const player of this.players) {
+      // 1. Snapshot input state BEFORE clearing triggers
+      const raw = player.controller.getState();
+      const input = {
+        aimDirection: { x: raw.aimDirection.x, y: raw.aimDirection.y },
+        chargeLevel: raw.chargeLevel,
+        isCharging: raw.isCharging,
+        shootTriggered: raw.shootTriggered,
+        resetTriggered: raw.resetTriggered,
+      };
+      player.controller.clearTriggers();
 
-    // 2. State machine logic (simplified: AIMING ↔ CHARGING only)
-    const state = this.gameState.state;
-
-    switch (state) {
-      case ShootingState.AIMING: {
-        // Hold hand ball in place (gravity off, at reset position)
-        const handBall = this.ballManager.getHandBall();
-        if (handBall) {
-          handBall.physics.setGravityScale(0);
-          handBall.physics.reset(BALL_RESET_POSITION);
-
-          // Transition to charging when input starts charging (only if hand ball ready)
-          if (input.isCharging) {
-            this.gameState.transition(ShootingState.CHARGING);
-            this.shootingMechanic.getPowerMeter().startCharging();
-          }
-        }
-        break;
-      }
-
-      case ShootingState.CHARGING: {
-        if (input.shootTriggered) {
-          // Compute impulse and shoot via BallManager
-          const impulse = this.shootingMechanic.shoot(input.chargeLevel, input.aimDirection.x);
-          this.ballManager.shootHandBall(impulse);
-
-          this.gameState.addShot();
-          this.shotFiredTime = performance.now();
-          this.trajectoryRenderer.setVisible(false);
-
-          // Reset shooting mechanic for next shot and go back to AIMING
-          this.shootingMechanic.reset();
-          this.gameState.transition(ShootingState.AIMING);
-        } else if (!input.isCharging) {
-          // Released without shooting (cancel / drag up) — go back to AIMING
-          this.shootingMechanic.reset();
-          this.gameState.transition(ShootingState.AIMING);
-        } else {
-          // Hold hand ball in place while charging, update power meter
-          this.shootingMechanic.update(input, dt);
-          const handBall = this.ballManager.getHandBall();
+      // 2. State machine logic per player
+      switch (player.state) {
+        case ShootingState.AIMING: {
+          const handBall = player.ballManager.getHandBall();
           if (handBall) {
             handBall.physics.setGravityScale(0);
-            handBall.physics.reset(BALL_RESET_POSITION);
+            handBall.physics.reset(player.resetPosition);
+
+            if (input.isCharging) {
+              player.state = ShootingState.CHARGING;
+              player.mechanic.getPowerMeter().startCharging();
+            }
           }
+          break;
         }
-        break;
+
+        case ShootingState.CHARGING: {
+          if (input.shootTriggered) {
+            const impulse = player.mechanic.shoot(input.chargeLevel, input.aimDirection.x);
+            player.ballManager.shootHandBall(impulse);
+
+            this.gameState.addShot();
+            player.shotFiredTime = performance.now();
+            player.trajectory.setVisible(false);
+
+            player.mechanic.reset();
+            player.state = ShootingState.AIMING;
+          } else if (!input.isCharging) {
+            player.mechanic.reset();
+            player.state = ShootingState.AIMING;
+          } else {
+            player.mechanic.update(input, dt);
+            const handBall = player.ballManager.getHandBall();
+            if (handBall) {
+              handBall.physics.setGravityScale(0);
+              handBall.physics.reset(player.resetPosition);
+            }
+          }
+          break;
+        }
+      }
+
+      // 3. Update flying balls per player
+      player.ballManager.update();
+
+      // 4. Detect bounces per player (shared throttle)
+      player.ballManager.detectBounces(this.lastBallBounceTime);
+
+      // 5. Update trajectory preview
+      const handBall = player.ballManager.getHandBall();
+      if (handBall && player.state === ShootingState.CHARGING && input.chargeLevel > 0) {
+        player.trajectory.setVisible(true);
+        const previewImpulse = player.mechanic.shoot(input.chargeLevel, input.aimDirection.x);
+        const ballPos = handBall.physics.getPosition();
+        const startPos = new THREE.Vector3(ballPos.x, ballPos.y, ballPos.z);
+        const dir = new THREE.Vector3(previewImpulse.x, previewImpulse.y, previewImpulse.z).normalize();
+        const power = new THREE.Vector3(previewImpulse.x, previewImpulse.y, previewImpulse.z).length() / BALL_MASS;
+        player.trajectory.update(startPos, dir, power);
+      } else {
+        player.trajectory.setVisible(false);
       }
     }
 
-    // 3. Update all flying balls (evaluate shots, clean up settled balls)
-    this.ballManager.update();
-
-    // 4. Step physics
+    // Step physics once after all players
     this.physicsWorld.step();
 
-    // 5. Detect ball bounces on ground (for sound)
-    this.ballManager.detectBounces(this.lastBallBounceTime);
-
-    // 6. Update camera (fixed forward, no aim panning)
+    // Update camera
     this.cameraController.update(0, 0);
 
-    // 7. Update HUD power bar
-    const chargeLevel = this.shootingMechanic.getChargeLevel();
-    this.hudRenderer.updatePowerBar(input.isCharging ? input.chargeLevel : chargeLevel);
-
-    // 8. Update trajectory preview during charging
-    const handBallForTrajectory = this.ballManager.getHandBall();
-    if (handBallForTrajectory && state === ShootingState.CHARGING && input.chargeLevel > 0) {
-      this.trajectoryRenderer.setVisible(true);
-      const previewImpulse = this.shootingMechanic.shoot(input.chargeLevel, input.aimDirection.x);
-      const ballPos = handBallForTrajectory.physics.getPosition();
-      const startPos = new THREE.Vector3(ballPos.x, ballPos.y, ballPos.z);
-      const dir = new THREE.Vector3(previewImpulse.x, previewImpulse.y, previewImpulse.z).normalize();
-      const power = new THREE.Vector3(previewImpulse.x, previewImpulse.y, previewImpulse.z).length() / BALL_MASS;
-      this.trajectoryRenderer.update(startPos, dir, power);
-    } else {
-      this.trajectoryRenderer.setVisible(false);
+    // Update HUD power bar (1P only — use first player's charge)
+    if (this.playerCount === 1) {
+      const p = this.players[0];
+      const raw = p.controller.getState();
+      const chargeLevel = p.mechanic.getChargeLevel();
+      this.hudRenderer.updatePowerBar(raw.isCharging ? raw.chargeLevel : chargeLevel);
     }
   }
 
   private render(): void {
-    // Sync all ball physics to rendering (hand ball + flying balls)
-    this.ballManager.syncRendering();
-
-    // Update hand animation
-    const state = this.gameState.state;
-    const input = this.inputManager.getState();
-    const justShot = performance.now() - this.shotFiredTime < 400;
-    this.handRenderer.update(
-      input.chargeLevel,
-      state === ShootingState.CHARGING,
-      justShot,
-    );
+    // Sync all players' ball physics to rendering
+    for (const player of this.players) {
+      player.ballManager.syncRendering();
+    }
 
     // Animate net
     this.netRenderer.update();
 
     // Render
     this.sceneManager.render(this.cameraController.getCamera());
+
+    // Keep knobs aligned with projected ball positions every frame
+    this.updateKnobPositions();
   }
 
   start(): void {
@@ -297,13 +355,15 @@ export class Game {
 
   dispose(): void {
     this.gameLoop.stop();
-    this.inputManager.dispose();
+    for (const player of this.players) {
+      player.controller.dispose();
+      player.mechanic.reset();
+      player.ballManager.dispose();
+      player.trajectory.dispose();
+    }
     this.joystickOverlay.dispose();
     this.audioManager.dispose();
     this.hudRenderer.dispose();
-    this.trajectoryRenderer.dispose();
-    this.handRenderer.dispose();
-    this.ballManager.dispose();
     this.netRenderer.dispose();
     this.hoopRenderer.dispose();
     this.courtRenderer.dispose();

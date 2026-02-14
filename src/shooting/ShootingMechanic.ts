@@ -15,8 +15,11 @@ const GRAVITY = 9.81;
 export class ShootingMechanic {
   private powerMeter = new PowerMeter();
   private aimSystem = new AimSystem();
+  private startPosition: { x: number; y: number; z: number };
 
-  constructor() {}
+  constructor(startPosition?: { x: number; y: number; z: number }) {
+    this.startPosition = startPosition ?? BALL_RESET_POSITION;
+  }
 
   update(inputState: InputState, dt: number): void {
     // Update aim from input
@@ -29,9 +32,9 @@ export class ShootingMechanic {
 
   shoot(chargeLevel: number, aimX: number = 0): { x: number; y: number; z: number } {
     const startPos = new THREE.Vector3(
-      BALL_RESET_POSITION.x,
-      BALL_RESET_POSITION.y,
-      BALL_RESET_POSITION.z,
+      this.startPosition.x,
+      this.startPosition.y,
+      this.startPosition.z,
     );
 
     // Target: hoop center with small clearance above rim so ball clears it
