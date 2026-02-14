@@ -56,7 +56,7 @@ export const BALL_RESET_DELAY = 1500; // ms after result
 // Multi-ball
 export const MAX_FLYING_BALLS = 10;
 export const BALL_CLEANUP_DELAY = 3000; // ms - remove settled balls after 3s
-export const BALL_SPAWN_DELAY = 500; // ms - delay before next ball appears after shooting
+export const BALL_SPAWN_DELAY = 100; // ms - delay before next ball appears after shooting
 
 // Net animation
 export const NET_HEIGHT = 0.45;

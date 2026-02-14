@@ -178,8 +178,6 @@ export class Game {
   private setupEventHandlers(): void {
     this.eventBus.on('shot:scored', (data) => {
       this.gameState.addScore(data.points);
-      const msg = data.type === 'swish' ? 'SWISH!' : 'SCORE!';
-      this.hudRenderer.showMessage(msg, 2000);
       this.hudRenderer.updateScore(
         this.gameState.score,
         this.gameState.shots,
@@ -192,7 +190,6 @@ export class Game {
     });
 
     this.eventBus.on('shot:missed', () => {
-      this.hudRenderer.showMessage('MISS', 1500);
     });
 
     this.eventBus.on('ball:rim-hit', () => {
